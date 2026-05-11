@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PULSE / FIRE</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" type="image/png" href="icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <style>
+        :root {
+            --bg: #0d0d0d;
+            --card: #181818;
+            --accent: #b24bf3; 
+            --accent-glow: rgba(178, 75, 243, 0.4);
+            --text: #eeeeee;
+            --danger: #ff4d4d;
+            --success: #00ff88;
+        }
+
+        .fire-mode {
+            --accent: #ff3300;
+            --accent-glow: rgba(255, 51, 0, 0.4);
+        }
+        
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        html, body { overflow: hidden; height: 100%; position: fixed; width: 100%; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; transition: background 0.3s; }
+
+        #rotate-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); z-index: 9999; display: none;
+            flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        }
+        @media (orientation: landscape) and (max-height: 500px) { #rotate-overlay { display: flex; } }
+
+        .container {
+            width: 92%; max-width: 380px; background: var(--card); padding: 20px;
+            border-radius: 28px; text-align: center; box-shadow: 0 15px 50px rgba(0,0,0,0.8);
+            border: 1px solid #2a2a2a; position: relative;
+        }
+
+        /* Toggle Simmetrico */
+        .mode-selector {
+            display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 15px;
+            font-family: 'Orbitron', sans-serif; font-size: 0.7rem; font-weight: 900; letter-spacing: 1px;
+        }
+        .mode-label { transition: 0.3s; color: #444; }
+        .mode-label.active-pulse { color: #b24bf3; text-shadow: 0 0 8px rgba(178, 75, 243, 0.5); }
+        .mode-label.active-fire { color: #ff3300; text-shadow: 0 0 8px rgba(255, 51, 0, 0.5); }
+
+        .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #222; transition: .4s; border-radius: 34px; border: 1px solid #333;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
+            background-color: #444; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { border-color: #ff3300; }
+        input:checked + .slider:before { transform: translateX(22px); background-color: #ff3300; box-shadow: 0 0 10px #ff3300; }
+
+        h1 { 
+            color: var(--accent); margin: 0; font-size: 1.8rem; text-transform: uppercase;
+            font-family: 'Orbitron', sans-serif; letter-spacing: 2px;
+            text-shadow: 0 0 15px var(--accent-glow); transition: 0.3s;
+        }
+
+        .map-trigger {
+            background: #222; border: 1px solid #444; color: var(--text);
+            padding: 5px 12px; border-radius: 8px; font-family: 'Orbitron', sans-serif;
+            font-size: 0.6rem; cursor: pointer;
+        }
+
+        .progress-container { margin: 15px 0; background: #222; height: 4px; border-radius: 10px; overflow: hidden; }
+        #progress-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.5s ease; }
+
+        .sync-btn {
+            background: rgba(255, 255, 255, 0.03); border: 1px solid #333; color: #666;
+            padding: 6px 12px; border-radius: 30px; font-size: 0.6rem; margin-bottom: 15px;
+            font-family: 'Orbitron', sans-serif; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .sync-btn.active { border-color: var(--accent); color: var(--text); }
+        .led { width: 5px; height: 5px; background: #444; border-radius: 50%; }
+        .sync-btn.active .led { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+        #day-select {
+            width: 100%; padding: 12px; background: #222 !important; color: white !important;
+            border: 2px solid var(--accent); border-radius: 10px; margin-bottom: 15px;
+            font-size: 16px; font-family: 'Inter', sans-serif;
+        }
+
+        /* Griglia dinamica */
+        .grid { display: grid; gap: 10px; margin-bottom: 15px; }
+        .grid-pulse { grid-template-columns: 1fr 1fr; }
+        .grid-fire { grid-template-columns: 1fr 1fr 1fr; }
+        
+        .speed-btn {
+            background: #252525; border: 1px solid #333; color: white;
+            padding: 15px 2px; border-radius: 12px; font-size: 1.1rem;
+            font-weight: bold; font-family: 'Orbitron', sans-serif;
+        }
+        .speed-btn:active { background: var(--accent); color: #000; }
+        
+        .display {
+            background: #000; padding: 15px; border-radius: 20px;
+            margin-bottom: 15px; border: 1px solid #222; transition: 0.05s;
+        }
+        .display.flash { background-color: var(--accent); }
+        #bpm-val { font-size: 4rem; font-weight: 900; color: var(--accent); font-family: 'Orbitron', sans-serif; line-height: 1; }
+
+        .multipliers { display: flex; justify-content: space-between; gap: 4px; margin-bottom: 15px; }
+        .mult-btn { flex: 1; background: #222; border: 1px solid #333; color: white; padding: 10px 0; border-radius: 8px; font-size: 0.6rem; font-weight: bold; }
+
+        .action-row { display: flex; gap: 10px; }
+        .action-btn { flex: 1; padding: 15px 5px; border-radius: 12px; font-family: 'Orbitron', sans-serif; font-weight: bold; font-size: 0.65rem; text-transform: uppercase; cursor: pointer; border: none; }
+        .complete-btn { background: #1a1a1a; border: 1px solid var(--success) !important; color: var(--success); }
+        .complete-btn.done { background: var(--success); color: #000; }
+        .stop-btn { background: var(--danger); color: white; }
+
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(8px); display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal.active { display: flex; }
+        .modal-content { width: 90%; max-width: 350px; background: #111; padding: 25px; border-radius: 24px; border: 1px solid var(--accent); }
+        .progress-map { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 20px; }
+        .map-dot { aspect-ratio: 1; background: #222; border-radius: 4px; font-size: 0.6rem; display: flex; align-items: center; justify-content: center; color: #444; font-weight: bold; }
+        .map-dot.completed { background: var(--accent); color: white; box-shadow: 0 0 8px var(--accent); }
+        .close-modal { margin-top: 25px; width: 100%; padding: 12px; background: var(--accent); border: none; border-radius: 10px; color: white; font-family: 'Orbitron', sans-serif; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="rotate-overlay">
+    <div style="font-family: 'Orbitron'; color: var(--accent);">
+        <p style="font-size: 1.5rem;">PLEASE ROTATE</p>
+        <p style="font-size: 0.8rem; color: #888;">OPTIMIZED FOR VERTICAL USE</p>
+    </div>
+</div>
+
+<div class="container">
+    <div class="mode-selector">
+        <span id="label-pulse" class="mode-label active-pulse">PULSE</span>
+        <label class="switch">
+            <input type="checkbox" id="mode-toggle" onchange="switchMode()">
+            <span class="slider"></span>
+        </label>
+        <span id="label-fire" class="mode-label">FIRE</span>
+    </div>
+
+    <div class="header">
+        <h1 id="app-title">PULSE 28</h1>
+        <button class="map-trigger" onclick="toggleModal(true)">MAP</button>
+    </div>
+    
+    <div class="progress-container">
+        <div id="progress-bar"></div>
+    </div>
+
+    <button id="sync-btn" class="sync-btn" onclick="toggleReminder()">
+        <div class="led"></div>
+        <span id="sync-text">DAILY SYNC: OFF</span>
+    </button>
+    
+    <select id="day-select" onchange="loadSpeeds()"></select>
+
+    <div id="speed-container" class="grid grid-pulse"></div>
+
+    <div class="display" id="bpm-display">
+        <div id="bpm-val">0</div>
+    </div>
+
+    <div class="multipliers">
+        <button class="mult-btn" onclick="applyMult(0.25)">x0.25</button>
+        <button class="mult-btn" onclick="applyMult(0.5)">x0.50</button>
+        <button class="mult-btn" onclick="applyMult(1)">x1</button>
+        <button class="mult-btn" onclick="applyMult(2)">x2</button>
+        <button class="mult-btn" onclick="applyMult(4)">x4</button>
+    </div>
+
+    <div class="action-row">
+        <button class="action-btn stop-btn" onclick="stopMet()">STOP</button>
+        <button id="complete-btn" class="action-btn complete-btn" onclick="toggleDayComplete()">MISSION ACCOMPLISHED</button>
+    </div>
+</div>
+
+<div class="modal" id="map-modal">
+    <div class="modal-content">
+        <h2 style="font-family: 'Orbitron'; color: var(--accent); margin: 0; font-size: 1.2rem; text-align: center;">PROGRESS MAP</h2>
+        <div class="progress-map" id="progress-map"></div>
+        <button class="close-modal" onclick="toggleModal(false)">CLOSE</button>
+    </div>
+</div>
+
+<script>
+    const chart28 = {
+        1:[50,58,69,84], 2:[52,60,72,88], 3:[54,63,76,92], 4:[56,66,80,96],
+        5:[60,72,88,104], 6:[63,76,92,108], 7:[66,80,96,112], 8:[69,84,100,116],
+        9:[40,48,56,66], 10:[42,50,58,69], 11:[44,52,60,72], 12:[46,54,63,76],
+        13:[72,88,104,120], 14:[76,92,108,126], 15:[80,96,112,132], 16:[84,100,116,138],
+        17:[108,126,152,184], 18:[112,132,160,192], 19:[116,138,168,200], 20:[120,144,176,208],
+        21:[96,112,132,160], 22:[100,116,138,168], 23:[104,120,144,176], 24:[108,126,152,184],
+        25:[84,100,116,138], 26:[88,104,120,144], 27:[92,108,126,152], 28:[96,112,132,160]
+    };
+
+    const chartFire = {
+        1:[50,60,70,80,90,100], 2:[65,75,85,100,115,125], 3:[40,50,60,70,80,90],
+        4:[75,90,105,120,135,145], 5:[110,130,150,170,190,210], 6:[100,120,140,160,180,195],
+        7:[90,110,130,150,170,185]
+    };
+
+    let isFireMode = false;
+    let baseBpm = 0;
+    let timer = null;
+    let audioCtx = null;
+    let completed28 = JSON.parse(localStorage.getItem('pulseProgress') || '{}');
+    let completedFire = JSON.parse(localStorage.getItem('fireProgress') || '{}');
+
+    function initApp() {
+        const savedMode = localStorage.getItem('pulseMode');
+        if(savedMode === 'fire') {
+            isFireMode = true;
+            document.getElementById('mode-toggle').checked = true;
+            updateVisualMode();
+        }
+        setupDaySelect();
+        checkReminderState();
+        loadSpeeds();
+    }
+
+    function switchMode() {
+        isFireMode = document.getElementById('mode-toggle').checked;
+        localStorage.setItem('pulseMode', isFireMode ? 'fire' : '28');
+        updateVisualMode();
+        setupDaySelect();
+        loadSpeeds();
+        stopMet();
+    }
+
+    function updateVisualMode() {
+        document.body.classList.toggle('fire-mode', isFireMode);
+        document.getElementById('label-pulse').classList.toggle('active-pulse', !isFireMode);
+        document.getElementById('label-fire').classList.toggle('active-fire', isFireMode);
+        document.getElementById('app-title').innerText = isFireMode ? 'FIRE 7' : 'PULSE 28';
+    }
+
+    function setupDaySelect() {
+        const select = document.getElementById('day-select');
+        select.innerHTML = '';
+        const limit = isFireMode ? 7 : 28;
+        const storage = isFireMode ? completedFire : completed28;
+        const prefix = isFireMode ? 'FIRE DAY' : 'DAY';
+
+        for(let i=1; i<=limit; i++) {
+            let opt = document.createElement('option');
+            opt.value = i;
+            opt.innerText = `${prefix} ${i}` + (storage[i] ? ' ✓' : '');
+            select.appendChild(opt);
+        }
+    }
+
+    function loadSpeeds() {
+        const select = document.getElementById('day-select');
+        const day = select.value;
+        const chart = isFireMode ? chartFire : chart28;
+        const speeds = chart[day];
+        const container = document.getElementById('speed-container');
+        
+        container.innerHTML = '';
+        container.className = isFireMode ? 'grid grid-fire' : 'grid grid-pulse';
+        
+        speeds.forEach(s => {
+            const b = document.createElement('button');
+            b.className = 'speed-btn';
+            b.innerText = s;
+            b.onclick = () => { unlockAudio(); baseBpm = s; startMet(s); };
+            container.appendChild(b);
+        });
+        updateUI();
+    }
+
+    function updateUI() {
+        const day = document.getElementById('day-select').value;
+        const storage = isFireMode ? completedFire : completed28;
+        const completeBtn = document.getElementById('complete-btn');
+        const limit = isFireMode ? 7 : 28;
+
+        if(storage[day]) {
+            completeBtn.innerText = "DONE ✓";
+            completeBtn.classList.add('done');
+        } else {
+            completeBtn.innerText = "MISSION ACCOMPLISHED";
+            completeBtn.classList.remove('done');
+        }
+
+        const totalDone = Object.keys(storage).length;
+        document.getElementById('progress-bar').style.width = (totalDone / limit * 100) + '%';
+        
+        const map = document.getElementById('progress-map');
+        map.innerHTML = '';
+        for(let i=1; i<=limit; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'map-dot' + (storage[i] ? ' completed' : '');
+            dot.innerText = i;
+            map.appendChild(dot);
+        }
+    }
+
+    function toggleDayComplete() {
+        const day = document.getElementById('day-select').value;
+        const storage = isFireMode ? completedFire : completed28;
+        const key = isFireMode ? 'fireProgress' : 'pulseProgress';
+
+        if(storage[day]) delete storage[day];
+        else storage[day] = true;
+        
+        localStorage.setItem(key, JSON.stringify(storage));
+        setupDaySelect();
+        document.getElementById('day-select').value = day;
+        updateUI();
+    }
+
+    function toggleModal(show) { document.getElementById('map-modal').classList.toggle('active', show); }
+
+    function unlockAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function startMet(bpm) {
+        bpm = Math.round(bpm);
+        document.getElementById('bpm-val').innerText = bpm;
+        if(timer) clearInterval(timer);
+        timer = setInterval(playClick, 60000 / bpm);
+        playClick();
+    }
+
+    function playClick() {
+        if(!audioCtx) return;
+        const display = document.getElementById('bpm-display');
+        display.classList.add('flash');
+        setTimeout(() => { display.classList.remove('flash'); }, 50);
+
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+
+        // 1500Hz per bucare il noise-gate Bluetooth
+        osc.frequency.setValueAtTime(1500, audioCtx.currentTime);
+        // Guadagno massimo
+        g.gain.setValueAtTime(1.0, audioCtx.currentTime);
+        // Decadimento più lungo (0.08s) per mantenere il canale audio aperto
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        
+        osc.connect(g); 
+        g.connect(audioCtx.destination);
+        
+        osc.start(); 
+        osc.stop(audioCtx.currentTime + 0.08);
+    }
+
+    function stopMet() { if(timer) clearInterval(timer); document.getElementById('bpm-val').innerText = "0"; }
+    function applyMult(m) { if(baseBpm > 0) { unlockAudio(); startMet(baseBpm * m); } }
+
+    async function toggleReminder() {
+        if (!("Notification" in window)) return;
+        const permission = await Notification.requestPermission();
+        if (permission === "granted") {
+            const btn = document.getElementById('sync-btn');
+            const text = document.getElementById('sync-text');
+            const isEnabled = btn.classList.toggle('active');
+            text.innerText = isEnabled ? "DAILY SYNC: ON" : "DAILY SYNC: OFF";
+            localStorage.setItem('pulseReminder', isEnabled);
+        }
+    }
+
+    function checkReminderState() {
+        if (localStorage.getItem('pulseReminder') === 'true') {
+            const btn = document.getElementById('sync-btn');
+            const text = document.getElementById('sync-text');
+            btn.classList.add('active');
+            text.innerText = "DAILY SYNC: ON";
+        }
+    }
+
+    window.onload = initApp;
+</script>
+</body>
+</html>
