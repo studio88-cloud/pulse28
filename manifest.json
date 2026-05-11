@@ -1,7 +1,7 @@
 {
-  "name": "La Mia App",
-  "short_name": "App",
-  "description": "Applicazione creata insieme a Gemini",
+  "name": "Pulse 28",
+  "short_name": "Pulse 28",
+  "description": "a Studio88 App",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#ffffff",
