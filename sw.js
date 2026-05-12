@@ -23,7 +23,7 @@ function checkAndNotify() {
         const minutes = now.getMinutes();
 
         // Se sono le 10:00 (e non abbiamo già mandato una notifica nell'ultima ora)
-        if (hours === 10 && minutes < 31) {
+        if (hours === 17 && minutes === 00) {
             self.registration.showNotification('PULSE 28', {
                 body: 'È ora del tuo esercizio quotidiano! ⚡',
                 icon: 'icon.png',
@@ -31,7 +31,7 @@ function checkAndNotify() {
                 vibrate: [200, 100, 200]
             });
         }
-    }, 1800000); 
+    }, 10000); 
 }
 
 // Gestione del click sulla notifica
