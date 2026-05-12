@@ -205,6 +205,8 @@
         <h2 style="font-family: 'Orbitron'; color: var(--accent); margin: 0; font-size: 1.2rem; text-align: center;">PROGRESS MAP</h2>
         <div class="progress-map" id="progress-map"></div>
         <button class="close-modal" onclick="toggleModal(false)">CLOSE</button>
+        <button class="close-modal" onclick="toggleModal(false)">CLOSE</button>
+<button style="margin-top: 10px; width: 100%; padding: 8px; background: transparent; border: 1px solid var(--danger); border-radius: 10px; color: var(--danger); font-family: 'Orbitron'; font-size: 0.6rem; font-weight: bold;" onclick="resetAllProgress()">RESET ALL DATA</button>
     </div>
 </div>
 
@@ -240,8 +242,25 @@
             updateVisualMode();
         }
         setupDaySelect();
+        
+        // AUTO SELECT FIRST INCOMPLETE DAY
+        autoSelectFirstIncompleteDay();
+        
         checkReminderState();
         loadSpeeds();
+    }
+
+    function autoSelectFirstIncompleteDay() {
+        const select = document.getElementById('day-select');
+        const limit = isFireMode ? 7 : 28;
+        const storage = isFireMode ? completedFire : completed28;
+        
+        for(let i=1; i<=limit; i++) {
+            if(!storage[i]) {
+                select.value = i;
+                break;
+            }
+        }
     }
 
     function switchMode() {
@@ -435,7 +454,17 @@
             alert("Sync Blocked. Please enable browser notifications to proceed.");
         }
     }
-    // --- FINE LOGICA NOTIFICHE ---
+    function resetAllProgress() {
+        const modeName = isFireMode ? "FIRE" : "PULSE";
+        if(confirm(`Sei sicuro di voler resettare tutti i progressi di ${modeName}?`)) {
+            const key = isFireMode ? 'fireProgress' : 'pulseProgress';
+            if(isFireMode) completedFire = {}; else completed28 = {};
+            localStorage.setItem(key, JSON.stringify({}));
+            setupDaySelect();
+            autoSelectFirstIncompleteDay();
+            loadSpeeds();
+        }
+    }
 
     window.onload = initApp;
 </script>
