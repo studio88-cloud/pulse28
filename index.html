@@ -426,13 +426,13 @@
                     navigator.serviceWorker.controller.postMessage({ type: 'SCHEDULE_NOTIFICATION' });
                 }
                 text.innerText = "DAILY SYNC: ON";
-                alert("Promemoria attivo: riceverai una notifica ogni mattina alle 10:00.");
+                alert("Daily Sync on: remember to practice!");
             } else {
                 text.innerText = "DAILY SYNC: OFF";
             }
             localStorage.setItem('pulseReminder', isEnabled);
         } else {
-            alert("Permesso negato. Abilita le notifiche nelle impostazioni del browser.");
+            alert("Sync Blocked. Please enable browser notifications to proceed.");
         }
     }
     // --- FINE LOGICA NOTIFICHE ---
