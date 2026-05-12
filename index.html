@@ -267,6 +267,7 @@
         localStorage.setItem('pulseMode', isFireMode ? 'fire' : '28');
         updateVisualMode();
         setupDaySelect();
+        autoSelectFirstIncompleteDay();
         loadSpeeds();
         stopMet();
     }
@@ -278,7 +279,7 @@
         document.getElementById('app-title').innerText = isFireMode ? 'FIRE 7' : 'PULSE 28';
     }
 
-    function setupDaySelect() {
+   function setupDaySelect() {
         const select = document.getElementById('day-select');
         select.innerHTML = '';
         const limit = isFireMode ? 7 : 28;
