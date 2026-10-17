@@ -1,14 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="apple-touch-icon" href="icon.png">
-
-<link rel="icon" type="image/png" href="icon.png">
-<meta name="mobile-web-app-capable" content="yes">
-    <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PULSE 28</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>PULSE / FIRE</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,8 +32,10 @@
         
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-        html, body { overflow: hidden; height: 100%; position: fixed; width: 100%; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; transition: background 0.3s; }
+        html, body { margin: 0; padding: 0; width: 100%; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; min-height: 100dvh; padding: 12px 0; transition: background 0.3s; }
+        :focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+        button { touch-action: manipulation; }
 
         #rotate-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -63,7 +60,8 @@
         .mode-label.active-fire { color: #ff3300; text-shadow: 0 0 8px rgba(255, 51, 0, 0.5); }
 
         .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
+        .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 2; }
+        input:focus-visible + .slider { outline: 2px solid var(--text); outline-offset: 3px; }
         .slider {
             position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
             background-color: #222; transition: .4s; border-radius: 34px; border: 1px solid #333;
@@ -90,14 +88,6 @@
         .progress-container { margin: 15px 0; background: #222; height: 4px; border-radius: 10px; overflow: hidden; }
         #progress-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.5s ease; }
 
-        .sync-btn {
-            background: rgba(255, 255, 255, 0.03); border: 1px solid #333; color: #666;
-            padding: 6px 12px; border-radius: 30px; font-size: 0.6rem; margin-bottom: 15px;
-            font-family: 'Orbitron', sans-serif; display: inline-flex; align-items: center; gap: 6px;
-        }
-        .sync-btn.active { border-color: var(--accent); color: var(--text); }
-        .led { width: 5px; height: 5px; background: #444; border-radius: 50%; }
-        .sync-btn.active .led { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
 
         #day-select {
             width: 100%; padding: 12px; background: #222 !important; color: white !important;
@@ -126,6 +116,8 @@
 
         .multipliers { display: flex; justify-content: space-between; gap: 4px; margin-bottom: 15px; }
         .mult-btn { flex: 1; background: #222; border: 1px solid #333; color: white; padding: 10px 0; border-radius: 8px; font-size: 0.6rem; font-weight: bold; }
+        .mult-btn.active, .speed-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+        .mult-btn:disabled { opacity: 0.25; }
 
         .action-row { display: flex; gap: 10px; }
         .action-btn { flex: 1; padding: 15px 5px; border-radius: 12px; font-family: 'Orbitron', sans-serif; font-weight: bold; font-size: 0.65rem; text-transform: uppercase; cursor: pointer; border: none; }
@@ -173,12 +165,8 @@
         <div id="progress-bar"></div>
     </div>
 
-    <button id="sync-btn" class="sync-btn" onclick="toggleReminder()">
-        <div class="led"></div>
-        <span id="sync-text">DAILY SYNC: OFF</span>
-    </button>
     
-    <select id="day-select" onchange="loadSpeeds()"></select>
+    <select id="day-select" aria-label="Training day" onchange="loadSpeeds()"></select>
 
     <div id="speed-container" class="grid grid-pulse"></div>
 
@@ -200,12 +188,11 @@
     </div>
 </div>
 
-<div class="modal" id="map-modal">
+<div class="modal" id="map-modal" role="dialog" aria-modal="true" aria-label="Progress map" onclick="if(event.target===this)toggleModal(false)">
     <div class="modal-content">
         <h2 style="font-family: 'Orbitron'; color: var(--accent); margin: 0; font-size: 1.2rem; text-align: center;">PROGRESS MAP</h2>
         <div class="progress-map" id="progress-map"></div>
         <button class="close-modal" onclick="toggleModal(false)">CLOSE</button>
-<button style="margin-top: 10px; width: 100%; padding: 8px; background: transparent; border: 1px solid var(--danger); border-radius: 10px; color: var(--danger); font-family: 'Orbitron'; font-size: 0.6rem; font-weight: bold;" onclick="resetAllProgress()">RESET ALL DATA</button>
     </div>
 </div>
 
@@ -226,114 +213,103 @@
         7:[90,110,130,150,170,185]
     };
 
-    let isFireMode = false;
-    let baseBpm = 0;
-    let timer = null;
-    let audioCtx = null;
-    let completed28 = JSON.parse(localStorage.getItem('pulseProgress') || '{}');
-    let completedFire = JSON.parse(localStorage.getItem('fireProgress') || '{}');
+    const MIN_BPM = 20, MAX_BPM = 300, MULTS = [0.25, 0.5, 1, 2, 4];
+    const $ = id => document.getElementById(id);
+
+    // localStorage "sicuro": non rompe l'app in navigazione privata o con dati corrotti
+    const ls = {
+        get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+        set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignora */ } }
+    };
+    const readObj = k => { try { return JSON.parse(ls.get(k) || '{}') || {}; } catch (e) { return {}; } };
+
+    let isFireMode = false, baseBpm = 0, curMult = 1, curBpm = 0;
+    let audioCtx = null, timerID = null, nextTickTime = 0, lastTick = 0, isPlaying = false;
+    let keepAlive = null, wakeLock = null;
+    let completed28 = readObj('pulseProgress');
+    let completedFire = readObj('fireProgress');
 
     function initApp() {
-        const savedMode = localStorage.getItem('pulseMode');
-        if(savedMode === 'fire') {
-            isFireMode = true;
-            document.getElementById('mode-toggle').checked = true;
-            updateVisualMode();
-        }
-        setupDaySelect();
-        
-        // AUTO SELECT FIRST INCOMPLETE DAY
-        autoSelectFirstIncompleteDay();
-        
-        checkReminderState();
-        loadSpeeds();
-    }
-
-    function autoSelectFirstIncompleteDay() {
-        const select = document.getElementById('day-select');
-        const limit = isFireMode ? 7 : 28;
-        const storage = isFireMode ? completedFire : completed28;
-        
-        for(let i=1; i<=limit; i++) {
-            if(!storage[i]) {
-                select.value = i;
-                break;
-            }
-        }
+        if (ls.get('pulseMode') === 'fire') { isFireMode = true; $('mode-toggle').checked = true; }
+        updateVisualMode(); setupDaySelect(); loadSpeeds();
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleModal(false); });
     }
 
     function switchMode() {
-        isFireMode = document.getElementById('mode-toggle').checked;
-        localStorage.setItem('pulseMode', isFireMode ? 'fire' : '28');
-        updateVisualMode();
-        setupDaySelect();
-        autoSelectFirstIncompleteDay();
-        loadSpeeds();
-        stopMet();
+        isFireMode = $('mode-toggle').checked;
+        ls.set('pulseMode', isFireMode ? 'fire' : '28');
+        stopMet(); baseBpm = 0;
+        updateVisualMode(); setupDaySelect(); loadSpeeds();
     }
 
     function updateVisualMode() {
         document.body.classList.toggle('fire-mode', isFireMode);
-        document.getElementById('label-pulse').classList.toggle('active-pulse', !isFireMode);
-        document.getElementById('label-fire').classList.toggle('active-fire', isFireMode);
-        document.getElementById('app-title').innerText = isFireMode ? 'FIRE 7' : 'PULSE 28';
+        $('label-pulse').classList.toggle('active-pulse', !isFireMode);
+        $('label-fire').classList.toggle('active-fire', isFireMode);
+        $('app-title').innerText = isFireMode ? 'FIRE 7' : 'PULSE 28';
     }
 
-   function setupDaySelect() {
-        const select = document.getElementById('day-select');
+    // Apre direttamente il primo giorno non ancora completato
+    function nextIncompleteDay() {
+        const limit = isFireMode ? 7 : 28, st = isFireMode ? completedFire : completed28;
+        for (let i = 1; i <= limit; i++) if (!st[i]) return i;
+        return 1;
+    }
+
+    function setupDaySelect(selected) {
+        const select = $('day-select');
         select.innerHTML = '';
         const limit = isFireMode ? 7 : 28;
         const storage = isFireMode ? completedFire : completed28;
         const prefix = isFireMode ? 'FIRE DAY' : 'DAY';
-
-        for(let i=1; i<=limit; i++) {
-            let opt = document.createElement('option');
+        for (let i = 1; i <= limit; i++) {
+            const opt = document.createElement('option');
             opt.value = i;
             opt.innerText = `${prefix} ${i}` + (storage[i] ? ' ✓' : '');
             select.appendChild(opt);
         }
+        select.value = selected || nextIncompleteDay();
     }
 
     function loadSpeeds() {
-        const select = document.getElementById('day-select');
-        const day = select.value;
-        const chart = isFireMode ? chartFire : chart28;
-        const speeds = chart[day];
-        const container = document.getElementById('speed-container');
-        
+        const speeds = (isFireMode ? chartFire : chart28)[$('day-select').value] || [];
+        const container = $('speed-container');
         container.innerHTML = '';
         container.className = isFireMode ? 'grid grid-fire' : 'grid grid-pulse';
-        
         speeds.forEach(s => {
             const b = document.createElement('button');
             b.className = 'speed-btn';
             b.innerText = s;
-            b.onclick = () => { unlockAudio(); baseBpm = s; startMet(s); };
+            b.setAttribute('aria-label', s + ' BPM');
+            b.onclick = () => { baseBpm = s; curMult = 1; startMet(s); };
             container.appendChild(b);
         });
-        updateUI();
+        updateUI(); markActive();
+    }
+
+    function markActive() {
+        document.querySelectorAll('.speed-btn').forEach(b => b.classList.toggle('active', isPlaying && +b.textContent === baseBpm));
+        document.querySelectorAll('.mult-btn').forEach((b, i) => {
+            const r = baseBpm * MULTS[i];
+            b.classList.toggle('active', isPlaying && curMult === MULTS[i]);
+            b.disabled = baseBpm > 0 && (r < MIN_BPM || r > MAX_BPM);   // es. x4 di 208 = 832 BPM: non suonabile
+        });
     }
 
     function updateUI() {
-        const day = document.getElementById('day-select').value;
+        const day = $('day-select').value;
         const storage = isFireMode ? completedFire : completed28;
-        const completeBtn = document.getElementById('complete-btn');
+        const completeBtn = $('complete-btn');
         const limit = isFireMode ? 7 : 28;
 
-        if(storage[day]) {
-            completeBtn.innerText = "DONE ✓";
-            completeBtn.classList.add('done');
-        } else {
-            completeBtn.innerText = "MISSION ACCOMPLISHED";
-            completeBtn.classList.remove('done');
-        }
+        if (storage[day]) { completeBtn.innerText = 'DONE ✓'; completeBtn.classList.add('done'); }
+        else { completeBtn.innerText = 'MISSION ACCOMPLISHED'; completeBtn.classList.remove('done'); }
 
-        const totalDone = Object.keys(storage).length;
-        document.getElementById('progress-bar').style.width = (totalDone / limit * 100) + '%';
-        
-        const map = document.getElementById('progress-map');
+        $('progress-bar').style.width = (Object.keys(storage).length / limit * 100) + '%';
+
+        const map = $('progress-map');
         map.innerHTML = '';
-        for(let i=1; i<=limit; i++) {
+        for (let i = 1; i <= limit; i++) {
             const dot = document.createElement('div');
             dot.className = 'map-dot' + (storage[i] ? ' completed' : '');
             dot.innerText = i;
@@ -342,129 +318,96 @@
     }
 
     function toggleDayComplete() {
-        const day = document.getElementById('day-select').value;
+        const day = $('day-select').value;
         const storage = isFireMode ? completedFire : completed28;
-        const key = isFireMode ? 'fireProgress' : 'pulseProgress';
-
-        if(storage[day]) delete storage[day];
-        else storage[day] = true;
-        
-        localStorage.setItem(key, JSON.stringify(storage));
-        setupDaySelect();
-        document.getElementById('day-select').value = day;
+        if (storage[day]) delete storage[day]; else storage[day] = true;
+        ls.set(isFireMode ? 'fireProgress' : 'pulseProgress', JSON.stringify(storage));
+        setupDaySelect(day);
         updateUI();
     }
 
-    function toggleModal(show) { document.getElementById('map-modal').classList.toggle('active', show); }
+    function toggleModal(show) { $('map-modal').classList.toggle('active', show); }
 
+    /* ---------- Audio ---------- */
     function unlockAudio() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
     }
 
+    // Fruscio quasi inudibile: tiene aperto il canale dei ricevitori Bluetooth tra un click e l'altro
+    const KEEPALIVE_GAIN = 0.004;
+    function startKeepAlive() {
+        if (keepAlive) return;
+        const buf = audioCtx.createBuffer(1, audioCtx.sampleRate, audioCtx.sampleRate), ch = buf.getChannelData(0);
+        for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+        const src = audioCtx.createBufferSource(), g = audioCtx.createGain();
+        src.buffer = buf; src.loop = true; g.gain.value = KEEPALIVE_GAIN;
+        src.connect(g); g.connect(audioCtx.destination); src.start();
+        keepAlive = { src, g };
+    }
+    function stopKeepAlive() {
+        if (!keepAlive) return;
+        try { keepAlive.src.stop(); } catch (e) { /* già fermo */ }
+        keepAlive.g.disconnect(); keepAlive = null;
+    }
+
+    async function setWake(on) {
+        try {
+            if (on && 'wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+            else if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+        } catch (e) { /* non critico */ }
+    }
+
+    function clickAt(t) {
+        const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+        osc.frequency.setValueAtTime(1500, t);               // 1500 Hz: passa meglio il noise-gate Bluetooth
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(0.9, t + 0.003);      // attacco morbido, niente distorsione a gain 1.0
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+        osc.connect(g); g.connect(audioCtx.destination);
+        osc.start(t); osc.stop(t + 0.1);
+        setTimeout(() => {
+            const d = $('bpm-display'); d.classList.add('flash');
+            setTimeout(() => d.classList.remove('flash'), 50);
+        }, Math.max(0, (t - audioCtx.currentTime) * 1000));
+    }
+
+    // Scheduler con lookahead sul clock audio: niente jitter né deriva come con setInterval
+    function scheduler() {
+        while (nextTickTime < audioCtx.currentTime + 0.1) {
+            clickAt(nextTickTime); lastTick = nextTickTime;
+            nextTickTime += 60 / curBpm;
+        }
+        timerID = setTimeout(scheduler, 25);
+    }
+
     function startMet(bpm) {
         bpm = Math.round(bpm);
-        document.getElementById('bpm-val').innerText = bpm;
-        if(timer) clearInterval(timer);
-        timer = setInterval(playClick, 60000 / bpm);
-        playClick();
-    }
-
-    function playClick() {
-        if(!audioCtx) return;
-        const display = document.getElementById('bpm-display');
-        display.classList.add('flash');
-        setTimeout(() => { display.classList.remove('flash'); }, 50);
-
-        const osc = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-
-        // 1500Hz per bucare il noise-gate Bluetooth
-        osc.frequency.setValueAtTime(1500, audioCtx.currentTime);
-        // Guadagno massimo
-        g.gain.setValueAtTime(1.0, audioCtx.currentTime);
-        // Decadimento più lungo (0.08s) per mantenere il canale audio aperto
-        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
-        
-        osc.connect(g); 
-        g.connect(audioCtx.destination);
-        
-        osc.start(); 
-        osc.stop(audioCtx.currentTime + 0.08);
-    }
-
-    function stopMet() { if(timer) clearInterval(timer); document.getElementById('bpm-val').innerText = "0"; }
-    function applyMult(m) { if(baseBpm > 0) { unlockAudio(); startMet(baseBpm * m); } }
-
-    async function toggleReminder() {
-        if (!("Notification" in window)) return;
-        const permission = await Notification.requestPermission();
-        if (permission === "granted") {
-            const btn = document.getElementById('sync-btn');
-            const text = document.getElementById('sync-text');
-            const isEnabled = btn.classList.toggle('active');
-            text.innerText = isEnabled ? "DAILY SYNC: ON" : "DAILY SYNC: OFF";
-            localStorage.setItem('pulseReminder', isEnabled);
-        }
-    }
-
-    function checkReminderState() {
-        if (localStorage.getItem('pulseReminder') === 'true') {
-            const btn = document.getElementById('sync-btn');
-            const text = document.getElementById('sync-text');
-            btn.classList.add('active');
-            text.innerText = "DAILY SYNC: ON";
-        }
-    }
-
-    // --- INIZIO LOGICA NOTIFICHE ORE 10:00 ---
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js').then(reg => {
-                console.log('Service Worker registrato');
-            }).catch(err => console.log('Errore registrazione SW:', err));
-        });
-    }
-
-    // Sovrascriviamo la funzione toggleReminder per comunicare con lo script esterno (sw.js)
-    async function toggleReminder() {
-        if (!("Notification" in window)) {
-            alert("Le notifiche non sono supportate su questo dispositivo.");
-            return;
-        }
-        
-        const permission = await Notification.requestPermission();
-        if (permission === "granted") {
-            const btn = document.getElementById('sync-btn');
-            const text = document.getElementById('sync-text');
-            const isEnabled = btn.classList.toggle('active');
-            
-            if (isEnabled) {
-                // Avvisa il Service Worker di attivare il timer per le ore 10:00
-                if (navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({ type: 'SCHEDULE_NOTIFICATION' });
-                }
-                text.innerText = "DAILY SYNC: ON";
-                alert("Daily Sync on: remember to practice!");
-            } else {
-                text.innerText = "DAILY SYNC: OFF";
-            }
-            localStorage.setItem('pulseReminder', isEnabled);
+        if (bpm < MIN_BPM || bpm > MAX_BPM) return;
+        unlockAudio(); curBpm = bpm; $('bpm-val').innerText = bpm;
+        if (!isPlaying) {
+            isPlaying = true; startKeepAlive(); setWake(true);
+            nextTickTime = audioCtx.currentTime + 0.3;       // tempo al link BT per "svegliarsi"
+            scheduler();
         } else {
-            alert("Sync Blocked. Please enable browser notifications to proceed.");
+            const now = audioCtx.currentTime;                // cambio tempo senza doppi click
+            nextTickTime = Math.min(Math.max(now + 0.02, lastTick + 60 / bpm), now + 0.5);
         }
+        markActive();
     }
-    function resetAllProgress() {
-        const modeName = isFireMode ? "FIRE" : "PULSE";
-        if(confirm(`Sei sicuro di voler resettare tutti i progressi di ${modeName}?`)) {
-            const key = isFireMode ? 'fireProgress' : 'pulseProgress';
-            if(isFireMode) completedFire = {}; else completed28 = {};
-            localStorage.setItem(key, JSON.stringify({}));
-            setupDaySelect();
-            autoSelectFirstIncompleteDay();
-            loadSpeeds();
-        }
+
+    function stopMet() {
+        isPlaying = false; clearTimeout(timerID); stopKeepAlive(); setWake(false);
+        curBpm = 0; $('bpm-val').innerText = '0'; markActive();
     }
+
+    function applyMult(m) {
+        if (baseBpm <= 0) return;
+        const r = baseBpm * m;
+        if (r < MIN_BPM || r > MAX_BPM) return;
+        curMult = m; startMet(r);
+    }
+
 
     window.onload = initApp;
 </script>
