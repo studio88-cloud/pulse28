@@ -135,6 +135,9 @@
         .map-dot { aspect-ratio: 1; background: #222; border-radius: 4px; font-size: 0.6rem; display: flex; align-items: center; justify-content: center; color: #444; font-weight: bold; }
         .map-dot.completed { background: var(--accent); color: white; box-shadow: 0 0 8px var(--accent); }
         .close-modal { margin-top: 25px; width: 100%; padding: 12px; background: var(--accent); border: none; border-radius: 10px; color: white; font-family: 'Orbitron', sans-serif; font-weight: bold; }
+        .reset-modal { margin-top: 20px; width: 100%; padding: 10px; background: transparent; border: 1px solid var(--danger); border-radius: 10px; color: var(--danger); font-family: 'Orbitron', sans-serif; font-weight: bold; font-size: 0.65rem; cursor: pointer; }
+        .reset-modal.confirm { background: var(--danger); color: #fff; }
+        .reset-modal + .close-modal { margin-top: 12px; }
     </style>
 </head>
 <body>
@@ -192,6 +195,7 @@
     <div class="modal-content">
         <h2 style="font-family: 'Orbitron'; color: var(--accent); margin: 0; font-size: 1.2rem; text-align: center;">PROGRESS MAP</h2>
         <div class="progress-map" id="progress-map"></div>
+        <button id="reset-map" class="reset-modal" onclick="resetProgress()">RESET PULSE 28</button>
         <button class="close-modal" onclick="toggleModal(false)">CLOSE</button>
     </div>
 </div>
@@ -326,7 +330,29 @@
         updateUI();
     }
 
-    function toggleModal(show) { $('map-modal').classList.toggle('active', show); }
+    let resetTimer = null;
+    function resetResetBtn() {
+        clearTimeout(resetTimer);
+        const b = $('reset-map');
+        b.classList.remove('confirm');
+        b.innerText = isFireMode ? 'RESET FIRE 7' : 'RESET PULSE 28';
+    }
+
+    // Doppio tocco per evitare cancellazioni accidentali
+    function resetProgress() {
+        const b = $('reset-map');
+        if (!b.classList.contains('confirm')) {
+            b.classList.add('confirm'); b.innerText = 'TAP AGAIN TO CONFIRM';
+            resetTimer = setTimeout(resetResetBtn, 3000);
+            return;
+        }
+        if (isFireMode) completedFire = {}; else completed28 = {};
+        ls.set(isFireMode ? 'fireProgress' : 'pulseProgress', '{}');
+        resetResetBtn();
+        setupDaySelect(); loadSpeeds();
+    }
+
+    function toggleModal(show) { if (show) resetResetBtn(); $('map-modal').classList.toggle('active', show); }
 
     /* ---------- Audio ---------- */
     function unlockAudio() {
